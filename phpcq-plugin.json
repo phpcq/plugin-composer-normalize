@@ -1,0 +1,22 @@
+{
+  "name": "composer-normalize",
+  "type": "php-file",
+  "url": "src/composer-normalize.php",
+  "api-version": "1.0.0",
+  "requirements": {
+    "php": {
+      "php": "^7.3 || ^8.0"
+    },
+    "tool": {
+      "composer-normalize": {
+        "constraints": "^2.1",
+        "sources": [
+          {
+            "type": "github",
+            "repository": "ergebnis/composer-normalize"
+          }
+        ]
+      }
+    }
+  }
+}
