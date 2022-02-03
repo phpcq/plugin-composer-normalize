@@ -1,8 +1,8 @@
 {
   "name": "phpcq/plugin-composer-normalize",
-  "type": "phpcq-plugin",
   "description": "composer-normalize plugin for phpcq.",
   "license": "MIT",
+  "type": "phpcq-plugin",
   "authors": [
     {
       "name": "Christian Schiffler",
