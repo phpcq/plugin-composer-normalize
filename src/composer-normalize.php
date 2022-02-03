@@ -344,7 +344,7 @@ return new class implements DiagnosticsPluginInterface, ExecPluginInterface {
                 }
 
                 foreach ($help['definition']['options'] as $name => $config) {
-                    $option = $application->describeOption($name, $config['description']);
+                    $option = $application->describeOption($name, $config['description'] ?? '');
                     if ($config['shortcut']) {
                         $option->withShortcut($config['shortcut']);
                     }
