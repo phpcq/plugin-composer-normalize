@@ -117,8 +117,10 @@ return new class implements DiagnosticsPluginInterface {
                     private const REGEX_NOT_WRITABLE = '#^.* is not writable\.$#';
                     private const REGEX_NOT_NORMALIZED = '#^.* is not normalized\.$#';
                     private const REGEX_IS_NORMALIZED = '#^.* is already normalized\.$#';
-                    private const REGEX_XDEBUG_ENABLED = '#^(?<message>You are running composer with Xdebug enabled\.' .
-                    ' This has a major impact on runtime performance\. See https://getcomposer.org/xdebug)$#';
+                    private const REGEX_XDEBUG_ENABLED = '#^(?<message>Composer is operating slower than normal' .
+                    ' because you have Xdebug enabled\. See https://getcomposer.org/xdebug)$#';
+                    private const REGEX_CURL_DISABLED = '#^(?<message>Composer is operating significantly slower' .
+                    ' than normal because you do not have the PHP curl extension enabled.$#';
                     private const REGEX_LOCK_OUTDATED = '#^(?<message>The lock file is not up to date with the latest' .
                     ' changes in composer\.json, it is recommended that you run `composer update --lock`\.)$#';
                     private const REGEX_SCHEMA_VIOLATION = '#^.* does not match the expected JSON schema:$#';
@@ -232,6 +234,9 @@ return new class implements DiagnosticsPluginInterface {
                                     );
                                 },
                                 self::REGEX_XDEBUG_ENABLED => function (string $message): void {
+                                    $this->logDiagnostic($message, TaskReportInterface::SEVERITY_INFO);
+                                },
+                                self::REGEX_CURL_DISABLED => function (string $message): void {
                                     $this->logDiagnostic($message, TaskReportInterface::SEVERITY_INFO);
                                 },
                                 self::REGEX_LOCK_OUTDATED => function (string $message): void {
