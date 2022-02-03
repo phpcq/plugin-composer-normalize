@@ -49,6 +49,9 @@ return new class implements DiagnosticsPluginInterface {
             ->withDefaultValue('space');
         $configOptionsBuilder
             ->describeBoolOption('no_update_lock', 'Do not update lock file if it exists');
+        $configOptionsBuilder
+            ->describeStringListOption('ignore_output', 'Regular expressions for output lines to ignore')
+            ->withDefaultValue([]);
     }
 
     public function createDiagnosticTasks(
@@ -61,7 +64,9 @@ return new class implements DiagnosticsPluginInterface {
             ->getTaskFactory()
             ->buildRunPhar('composer-normalize', $this->buildArguments($config))
             ->withWorkingDirectory($environment->getProjectConfiguration()->getProjectRootPath())
-            ->withOutputTransformer($this->createOutputTransformerFactory($composerJson))
+            ->withOutputTransformer(
+                $this->createOutputTransformerFactory($composerJson, $config->getStringList('ignore_output'))
+            )
             ->build();
     }
 
@@ -87,20 +92,27 @@ return new class implements DiagnosticsPluginInterface {
         return $arguments;
     }
 
-    private function createOutputTransformerFactory(string $composerFile): OutputTransformerFactoryInterface
-    {
-        return new class ($composerFile) implements OutputTransformerFactoryInterface {
+    /** @param list<string> $ignore */
+    private function createOutputTransformerFactory(
+        string $composerFile,
+        array $ignore
+    ): OutputTransformerFactoryInterface {
+        return new class ($composerFile, $ignore) implements OutputTransformerFactoryInterface {
             /** @var string */
             private $composerFile;
+            /** @var list<string> */
+            private $ignore;
 
-            public function __construct(string $composerFile)
+            /** @param list<string> $ignore */
+            public function __construct(string $composerFile, array $ignore)
             {
                 $this->composerFile = $composerFile;
+                $this->ignore = $ignore;
             }
 
             public function createFor(TaskReportInterface $report): OutputTransformerInterface
             {
-                return new class ($this->composerFile, $report) implements OutputTransformerInterface {
+                return new class ($this->composerFile, $report, $this->ignore) implements OutputTransformerInterface {
                     private const REGEX_IN_APPLICATION = '#^In Application\.php line [0-9]*:$#';
                     private const REGEX_NOT_WRITABLE = '#^.* is not writable\.$#';
                     private const REGEX_NOT_NORMALIZED = '#^.* is not normalized\.$#';
@@ -121,12 +133,16 @@ return new class implements DiagnosticsPluginInterface {
                     private $diff = '';
                     /** @var TaskReportInterface */
                     private $report;
+                    /** @var list<string> */
+                    private $ignore;
 
-                    public function __construct(string $composerFile, TaskReportInterface $report)
+                    /** @param list<string> $ignore */
+                    public function __construct(string $composerFile, TaskReportInterface $report, array $ignore)
                     {
                         $this->composerFile = $composerFile;
                         $this->report       = $report;
                         $this->data         = BufferedLineReader::create();
+                        $this->ignore       = $ignore;
                     }
 
                     public function write(string $data, int $channel): void
@@ -185,7 +201,7 @@ return new class implements DiagnosticsPluginInterface {
                         if ('' !== $this->diff) {
                             $this->report
                                 ->addDiff('composer.json-normalized.diff')
-                                    ->fromString($this->diff)
+                                ->fromString($this->diff)
                                 ->end();
                         }
                     }
@@ -261,6 +277,11 @@ return new class implements DiagnosticsPluginInterface {
                             if (1 === preg_match($pattern, $line, $matches)) {
                                 $variables = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY);
                                 call_user_func_array($handler, $variables);
+                                return true;
+                            }
+                        }
+                        foreach ($this->ignore as $ignore) {
+                            if (preg_match($ignore, $line)) {
                                 return true;
                             }
                         }
