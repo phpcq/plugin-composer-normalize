@@ -2,13 +2,17 @@
 
 use Phpcq\PluginApi\Version10\Configuration\PluginConfigurationBuilderInterface;
 use Phpcq\PluginApi\Version10\Configuration\PluginConfigurationInterface;
+use Phpcq\PluginApi\Version10\Definition\ExecTaskDefinitionBuilderInterface;
 use Phpcq\PluginApi\Version10\DiagnosticsPluginInterface;
 use Phpcq\PluginApi\Version10\EnvironmentInterface;
+use Phpcq\PluginApi\Version10\ExecPluginInterface;
 use Phpcq\PluginApi\Version10\Output\OutputInterface;
 use Phpcq\PluginApi\Version10\Output\OutputTransformerFactoryInterface;
 use Phpcq\PluginApi\Version10\Output\OutputTransformerInterface;
 use Phpcq\PluginApi\Version10\Report\ReportInterface;
 use Phpcq\PluginApi\Version10\Report\TaskReportInterface;
+use Phpcq\PluginApi\Version10\Task\OutputWritingTaskInterface;
+use Phpcq\PluginApi\Version10\Task\TaskInterface;
 use Phpcq\PluginApi\Version10\Util\BufferedLineReader;
 
 // phpcs:disable PSR12.Files.FileHeader.IncorrectOrder - This is not the file header but psalm annotations
@@ -20,7 +24,7 @@ use Phpcq\PluginApi\Version10\Util\BufferedLineReader;
  *  |TaskReportInterface::SEVERITY_INFO
  *  |TaskReportInterface::SEVERITY_NONE
  */
-return new class implements DiagnosticsPluginInterface {
+return new class implements DiagnosticsPluginInterface, ExecPluginInterface {
     public function getName(): string
     {
         return 'composer-normalize';
@@ -63,6 +67,29 @@ return new class implements DiagnosticsPluginInterface {
             ->withWorkingDirectory($environment->getProjectConfiguration()->getProjectRootPath())
             ->withOutputTransformer($this->createOutputTransformerFactory($composerJson))
             ->build();
+    }
+
+    public function describeExecTask(
+        ExecTaskDefinitionBuilderInterface $definitionBuilder,
+        EnvironmentInterface $environment
+    ): void {
+        $task = $environment->getTaskFactory()
+            ->buildRunPhar('composer-normalize', ['--help', '--format=json'])->build();
+        if (!$task instanceof OutputWritingTaskInterface) {
+            return;
+        }
+
+        $parser = $this->createHelpParser();
+        $task->runForOutput($parser);
+        $parser->describe($definitionBuilder);
+    }
+
+    public function createExecTask(
+        ?string $application,
+        array $arguments,
+        EnvironmentInterface $environment
+    ): TaskInterface {
+        return $environment->getTaskFactory()->buildRunPhar('composer-normalize', $arguments)->build();
     }
 
     /** @return string[] */
@@ -267,6 +294,71 @@ return new class implements DiagnosticsPluginInterface {
                         return false;
                     }
                 };
+            }
+        };
+    }
+
+    private function createHelpParser(): OutputInterface
+    {
+        return new class implements OutputInterface {
+            private $output = '';
+
+            public function write(
+                string $message,
+                int $verbosity = self::VERBOSITY_NORMAL,
+                int $channel = self::CHANNEL_STDOUT
+            ): void {
+                if ($channel !== OutputInterface::CHANNEL_STDOUT) {
+                    return;
+                }
+                $this->output .= $message;
+            }
+
+            public function writeln(
+                string $message,
+                int $verbosity = self::VERBOSITY_NORMAL,
+                int $channel = self::CHANNEL_STDOUT
+            ): void {
+                if ($channel !== OutputInterface::CHANNEL_STDOUT) {
+                    return;
+                }
+                $this->output .= $message . "\n";
+            }
+
+            public function describe(ExecTaskDefinitionBuilderInterface $definitionBuilder): void
+            {
+                $help = json_decode($this->output, true, JSON_THROW_ON_ERROR);
+                $application = $definitionBuilder->describeApplication($help['description']);
+
+                foreach ($help['definition']['arguments'] as $name => $config) {
+                    $argument = $application->describeArgument($name, $config['description'] ?? '');
+                    if ($config['is_required']) {
+                        $argument->isRequired();
+                    }
+                    if ($config['is_array']) {
+                        $argument->isArray();
+                    }
+                    if ($config['default'] !== null) {
+                        $argument->withDefaultValue($config['default']);
+                    }
+                }
+
+                foreach ($help['definition']['options'] as $name => $config) {
+                    $option = $application->describeOption($name, $config['description']);
+                    if ($config['shortcut']) {
+                        $option->withShortcut($config['shortcut']);
+                    }
+                    if ($config['accept_value']) {
+                        if ($config['is_value_required']) {
+                            $option->withRequiredValue();
+                        } else {
+                            $option->withOptionalValue(null, $config['default']);
+                        }
+                        if ($config['is_multiple']) {
+                            $option->isArray();
+                        }
+                    }
+                }
             }
         };
     }

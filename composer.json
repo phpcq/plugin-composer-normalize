@@ -19,6 +19,7 @@
   ],
   "require": {
     "php": "^7.3 || ^8.0",
+    "ext-json": "*",
     "phpcq/plugin-api": "^1.0@dev"
   },
   "require-dev": {
