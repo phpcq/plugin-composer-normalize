@@ -281,7 +281,7 @@ return new class implements DiagnosticsPluginInterface, ExecPluginInterface {
                         foreach (
                             // Regex => callback (...<named match>): void
                             [
-                                self::REGEX_IN_APPLICATION => function (): void {
+                                self::REGEX_IN_APPLICATION => static function (): void {
                                     // Ignore header.
                                 },
                                 self::REGEX_NOT_WRITABLE => function (): void {
@@ -340,13 +340,13 @@ return new class implements DiagnosticsPluginInterface, ExecPluginInterface {
                                 self::REGEX_SKIPPED_COMMAND => function (string $message): void {
                                     $this->logDiagnostic($message, TaskReportInterface::SEVERITY_INFO);
                                 },
-                                self::READING_FILE => function (): void {
+                                self::READING_FILE => static function (): void {
                                     // Ignore.
                                 },
-                                self::LOADING_FILE => function (): void {
+                                self::LOADING_FILE => static function (): void {
                                     // Ignore.
                                 },
-                                self::CHECKED_CA_OR_DIRECTORY => function (): void {
+                                self::CHECKED_CA_OR_DIRECTORY => static function (): void {
                                     // Ignore.
                                 },
                                 self::UNCONFIGURED_DOMAIN => function (string $message): void {
