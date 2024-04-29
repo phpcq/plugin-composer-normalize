@@ -12,12 +12,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpcq/plugin-api.git",
-                "reference": "afc5a467fcca3d4ac1bc39587b7b9f0a4e45a3ab"
+                "reference": "5cdbbbcea41191533e8c2bee4a61a73d731df0bb"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpcq/plugin-api/zipball/afc5a467fcca3d4ac1bc39587b7b9f0a4e45a3ab",
-                "reference": "afc5a467fcca3d4ac1bc39587b7b9f0a4e45a3ab",
+                "url": "https://api.github.com/repos/phpcq/plugin-api/zipball/5cdbbbcea41191533e8c2bee4a61a73d731df0bb",
+                "reference": "5cdbbbcea41191533e8c2bee4a61a73d731df0bb",
                 "shasum": ""
             },
             "require": {
@@ -60,7 +60,7 @@
             "description": "PHP code quality project plugin API interfaces.",
             "support": {
                 "issues": "https://github.com/phpcq/plugin-api/issues",
-                "source": "https://github.com/phpcq/plugin-api/tree/master"
+                "source": "https://github.com/phpcq/plugin-api/tree/1.0.3"
             },
             "funding": [
                 {
@@ -72,7 +72,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2022-01-13T10:56:37+00:00"
+            "time": "2024-03-21T08:35:42+00:00"
         }
     ],
     "packages-dev": [
@@ -209,5 +209,5 @@
         "ext-json": "*"
     },
     "platform-dev": [],
-    "plugin-api-version": "2.2.0"
+    "plugin-api-version": "2.6.0"
 }

@@ -153,6 +153,13 @@ return new class implements DiagnosticsPluginInterface, ExecPluginInterface {
                     private const REGEX_SCHEMA_VIOLATION = '#^.* does not match the expected JSON schema:$#';
                     private const REGEX_SKIPPED_COMMAND = '#^(?<message>Plugin command normalize \(.*\) would' .
                     ' override a Composer command and has been skipped)#';
+                    private const READING_FILE = '#^Reading.*#';
+                    private const LOADING_FILE = '#^Loading.*#';
+                    private const CHECKED_CA_OR_DIRECTORY = '#^Checked (?:CA|directory).*#';
+                    private const UNCONFIGURED_DOMAIN = '#^(?<message>.* is not in the configured .*, adding it ' .
+                    'implicitly as authentication is configured for this domain)#';
+                    private const EXECUTING_COMMAND = '#^(?<message>Executing (?:async )?command.*)#';
+                    private const RUNNING_VERSION_INFORMATION = '#^(?<message>Running .* with PHP .* on .*)#';
 
                     /** @var string */
                     private $composerFile;
@@ -164,6 +171,7 @@ return new class implements DiagnosticsPluginInterface, ExecPluginInterface {
                     private $report;
                     /** @var list<string> */
                     private $ignore;
+                    private $inDiff = false;
 
                     /** @param list<string> $ignore */
                     public function __construct(string $composerFile, TaskReportInterface $report, array $ignore)
@@ -176,20 +184,47 @@ return new class implements DiagnosticsPluginInterface, ExecPluginInterface {
 
                     public function write(string $data, int $channel): void
                     {
+                        // strip ansi codes.
+                        $ascii = preg_replace('#\[[0-9;]+m#', '', $data);
+                        if ('' === $ascii) {
+                            return;
+                        }
                         if (OutputInterface::CHANNEL_STDOUT === $channel) {
                             // This is the ONLY line that is on output channel instead of error.
-                            if (1 === preg_match(self::REGEX_IS_NORMALIZED, $dummy = trim($data))) {
+                            if (1 === preg_match(self::REGEX_IS_NORMALIZED, $dummy = trim($ascii))) {
                                 $this->logDiagnostic(
                                     $this->composerFile . ' is normalized.',
                                     TaskReportInterface::SEVERITY_INFO
                                 );
                                 return;
                             }
-                            $this->diff .= $data;
+                            // Chop off beginning.
+                            if (false !== ($start = \strpos($ascii, "---------- begin diff ----------\n"))) {
+                                $ascii = substr($ascii, $start + 33);
+                                $this->inDiff = true;
+                            }
+                            if (!$this->inDiff) {
+                                return;
+                            }
+                            // Translate file name in diff.
+                            $ascii = str_replace('--- original', '--- ' . $this->composerFile, $ascii);
+                            $ascii = str_replace('+++ normalized', '+++ ' . $this->composerFile, $ascii);
+
+                            // Chop off trailing.
+                            if (false !== ($end = \strpos($ascii, "----------- end diff -----------\n"))) {
+                                $this->diff .= substr($ascii, 0, $end - 1);
+                                $this->inDiff = false;
+                            }
+                            // Add content.
+                            if ($this->inDiff) {
+                                $this->diff = $ascii;
+                                return;
+                            }
+
                             return;
                         }
 
-                        $this->data->push($data);
+                        $this->data->push($ascii);
                     }
 
                     public function finish(int $exitCode): void
@@ -203,6 +238,7 @@ return new class implements DiagnosticsPluginInterface, ExecPluginInterface {
                     /** @psalm-param TSeverity $severity */
                     private function logDiagnostic(string $message, string $severity): void
                     {
+                        /** @psalm-trace $severity */
                         $this->report->addDiagnostic($severity, $message)->forFile($this->composerFile)->end()->end();
                     }
 
@@ -245,7 +281,7 @@ return new class implements DiagnosticsPluginInterface, ExecPluginInterface {
                         foreach (
                             // Regex => callback (...<named match>): void
                             [
-                                self::REGEX_IN_APPLICATION => function (): void {
+                                self::REGEX_IN_APPLICATION => static function (): void {
                                     // Ignore header.
                                 },
                                 self::REGEX_NOT_WRITABLE => function (): void {
@@ -302,6 +338,24 @@ return new class implements DiagnosticsPluginInterface, ExecPluginInterface {
                                     }
                                 },
                                 self::REGEX_SKIPPED_COMMAND => function (string $message): void {
+                                    $this->logDiagnostic($message, TaskReportInterface::SEVERITY_INFO);
+                                },
+                                self::READING_FILE => static function (): void {
+                                    // Ignore.
+                                },
+                                self::LOADING_FILE => static function (): void {
+                                    // Ignore.
+                                },
+                                self::CHECKED_CA_OR_DIRECTORY => static function (): void {
+                                    // Ignore.
+                                },
+                                self::UNCONFIGURED_DOMAIN => function (string $message): void {
+                                    $this->logDiagnostic($message, TaskReportInterface::SEVERITY_INFO);
+                                },
+                                self::EXECUTING_COMMAND => function (string $message): void {
+                                    $this->logDiagnostic($message, TaskReportInterface::SEVERITY_INFO);
+                                },
+                                self::RUNNING_VERSION_INFORMATION => function (string $message): void {
                                     $this->logDiagnostic($message, TaskReportInterface::SEVERITY_INFO);
                                 },
                             ] as $pattern => $handler
